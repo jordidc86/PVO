@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { FlightPlanFormData } from './schemas';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function sendFlightPlanEmail(
     flightPlan: FlightPlanFormData & {
@@ -10,6 +10,11 @@ export async function sendFlightPlanEmail(
         fuelReserveMinutes?: number;
     }
 ) {
+    if (!resend) {
+        console.warn('Resend not configured, skipping email');
+        return null;
+    }
+
     const emailBody = generatePlainTextEmail(flightPlan);
 
     try {

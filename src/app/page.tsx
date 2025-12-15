@@ -83,26 +83,78 @@ export default function FlightPlanPage() {
   const onSubmit = async (data: FlightPlanFormData) => {
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/flight-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          calculatedLift,
-          availablePayload,
-          fuelReserveMinutes,
-        }),
-      });
+      // Generate summary text
+      const summary = generateFlightPlanSummary(data);
 
-      if (!response.ok) throw new Error('Failed to submit');
+      // Copy to clipboard
+      await navigator.clipboard.writeText(summary);
 
       setSubmitSuccess(true);
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (error) {
-      alert('Error submitting flight plan');
+      alert('Error generating flight plan');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const generateFlightPlanSummary = (data: FlightPlanFormData): string => {
+    const totalPaxWeight = data.passengers.reduce((sum, p) => sum + p.weight, 0);
+    const clothingWeight = data.clothingLuggageIncluded ? data.passengers.length * 3 : 0;
+
+    return `
+OPERATIONAL FLIGHT PLAN
+========================
+
+AIRCRAFT INFORMATION
+--------------------
+Registration: ${data.aircraftRegistration || 'N/A'}
+Type: ${data.aircraftType || 'N/A'}
+
+FLIGHT DETAILS
+--------------
+Date: ${data.flightDate}
+Pilot: ${data.pilotName}
+License: ${data.pilotLicense || 'N/A'}
+
+PILOT DECLARATION
+-----------------
+✓ No alcohol or drugs consumed
+✓ Adequate rest as per EASA regulations
+✓ Pre-flight inspection completed
+
+WEATHER CONDITIONS
+------------------
+Source: OpenMeteo API (Segovia: 40.9429°N, 4.1088°W)
+Temperature: ${data.temperatureCelsius}°C
+QNH: ${data.qnhHpa || 'N/A'} hPa
+Surface Wind: ${data.windSurfaceSpeed || 'N/A'} km/h @ ${data.windSurfaceDirection || 'N/A'}°
+Wind @ 1000m: ${data.windAltitude1000mSpeed || 'N/A'} km/h @ ${data.windAltitude1000mDirection || 'N/A'}°
+Wind @ 2000m: ${data.windAltitude2000mSpeed || 'N/A'} km/h @ ${data.windAltitude2000mDirection || 'N/A'}°
+
+PERFORMANCE CALCULATIONS
+------------------------
+Calculated Lift: ${calculatedLift.toFixed(2)} kg
+Available Payload: ${availablePayload.toFixed(2)} kg
+
+PASSENGER MANIFEST
+------------------
+${data.passengers.map((p, i) => `${i + 1}. ${p.name} - ${p.weight} kg`).join('\n')}
+
+Total Passenger Weight: ${totalPaxWeight} kg
+Clothing/Luggage Weight Included: ${data.clothingLuggageIncluded ? 'YES (+' + clothingWeight + 'kg)' : 'NO'}
+Total Weight: ${totalPaxWeight + clothingWeight} kg
+
+FUEL MANAGEMENT
+---------------
+Total Fuel: ${data.fuelTotalLiters} L
+Estimated Consumption: ${data.fuelEstimatedConsumptionLiters} L
+Reserve: ${fuelReserveMinutes} minutes
+Reserve Sufficient (≥30 min): ${fuelReserveSufficient ? 'YES ✓' : 'NO ✗'}
+
+========================
+Generated: ${new Date().toISOString()}
+    `.trim();
   };
 
   return (
@@ -429,13 +481,13 @@ export default function FlightPlanPage() {
           {/* Submit */}
           <div className="flex gap-4">
             <button type="submit" disabled={isSubmitting || !loadWeightStatus || !fuelReserveSufficient} className="btn-primary flex-1">
-              {isSubmitting ? 'Submitting...' : '✈️ Submit Flight Plan'}
+              {isSubmitting ? 'Generating...' : '📋 Generate Flight Plan'}
             </button>
           </div>
 
           {submitSuccess && (
             <div className="p-4 bg-success/20 border-2 border-success rounded-lg text-center">
-              ✓ Flight plan submitted successfully! Email sent to info@voyagerballoons.com
+              ✓ Flight plan copied to clipboard! Paste it wherever you need it.
             </div>
           )}
         </form>
