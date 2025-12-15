@@ -1,26 +1,115 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Modern color palette - vibrant blues and purples */
+  --background: #0f0f1e;
+  --foreground: #e8eaed;
+  --primary: #4f46e5;
+  --primary-hover: #6366f1;
+  --secondary: #8b5cf6;
+  --accent: #06b6d4;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --card-bg: #1a1a2e;
+  --card-border: #2d2d44;
+  --input-bg: #16162a;
+  --input-border: #2d2d44;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* Component Styles */
+.card {
+  @apply bg-card-bg border border-card-border rounded-xl p-6 shadow-lg;
+}
+
+.section-title {
+  @apply text-2xl font-bold mb-4 text-foreground;
+}
+
+.label {
+  @apply block text-sm font-medium text-foreground/80 mb-1;
+}
+
+.input {
+  @apply w-full px-4 py-2 bg-input-bg border border-input-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+}
+
+.btn-primary {
+  @apply px-6 py-3 bg-gradient-to-r from-primary to-primary-hover text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-secondary/20 border border-secondary text-secondary font-medium rounded-lg hover:bg-secondary/30 transition-all;
+}
+
+.btn-danger {
+  @apply px-3 py-2 bg-danger/20 border border-danger text-danger font-medium rounded-lg hover:bg-danger/30 transition-all;
+}
+
+.stat-card {
+  @apply p-4 bg-input-bg/50 rounded-lg border border-input-border;
+}
+
+.stat-label {
+  @apply text-sm text-foreground/60 mb-1;
+}
+
+.stat-value {
+  @apply text-2xl font-bold text-accent;
+}
+
+.error {
+  @apply text-danger text-sm mt-1;
 }
