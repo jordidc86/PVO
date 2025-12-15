@@ -46,7 +46,7 @@ OPERATIONAL FLIGHT PLAN
 
 AIRCRAFT INFORMATION
 --------------------
-Type: ${flightPlan.aircraftType.toUpperCase()}
+Type: ${flightPlan.aircraftType?.toUpperCase() || 'N/A'}
 Registration: ${flightPlan.aircraftRegistration || 'N/A'}
 
 FLIGHT DETAILS
