@@ -5,6 +5,14 @@ import { flightPlanSchema } from '@/lib/schemas';
 
 export async function POST(request: NextRequest) {
     try {
+        // Check if Supabase is configured
+        if (!supabase) {
+            return NextResponse.json(
+                { error: 'Database not configured. Please set SUPABASE environment variables.' },
+                { status: 503 }
+            );
+        }
+
         const body = await request.json();
 
         // Validate input
