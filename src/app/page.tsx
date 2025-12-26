@@ -509,9 +509,14 @@ Generated: ${new Date().toISOString()}
           <section className="card">
             <div className="flex justify-between items-center mb-4">
               <h2 className="section-title mb-0">6. Passenger Manifest</h2>
-              <button type="button" onClick={() => append({ name: '', weight: 0, hasSpecialNeeds: false })} className="btn-secondary text-xs">
-                + Add Passenger
-              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => alert('Calendar integration placeholder - will be connected to Google Sheets in next phase.')} className="btn-secondary text-xs bg-blue-600/20 hover:bg-blue-600/40 border-blue-600/30 text-blue-400">
+                  📅 Connect with Calendar
+                </button>
+                <button type="button" onClick={() => append({ name: '', weight: 0, hasSpecialNeeds: false })} className="btn-secondary text-xs">
+                  + Add Passenger
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
