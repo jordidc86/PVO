@@ -14,7 +14,7 @@ export const flightPlanSchema = z.object({
     // Aircraft
     aircraftType: z.string().optional(),
     aircraftRegistration: z.string().min(1, 'Aircraft registration is required'),
-    massDeterminationMethod: z.enum(['declared', 'weighed']),
+    massDeterminationMethod: z.literal('declared'),
 
     // Flight Details
     flightDate: z.string().min(1, 'Flight date is required'),
@@ -58,10 +58,9 @@ export const flightPlanSchema = z.object({
 
     // Risk Assessment
     riskCheckPowerLines: z.boolean(),
-    riskCheckWindTurbines: z.boolean(),
-    riskCheckUrbanAreas: z.boolean(),
-    riskCheckWater: z.boolean(),
-    riskCheckLivestock: z.boolean(),
+    riskCheckSolarCells: z.boolean(),
+    riskCheckWildlifeAreas: z.boolean(),
+    riskCheckCityCenterNoWind: z.boolean(),
     specialRiskNotes: z.string().optional(),
     landingOptionsTypical: z.string().optional(),
     landingOptionsAvoid: z.string().optional(),

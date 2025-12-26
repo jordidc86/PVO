@@ -52,10 +52,9 @@ export default function FlightPlanPage() {
       fuelReserveJustification: '',
       fuelConsumptionSource: 'Manufacturer Datasheet',
       riskCheckPowerLines: false,
-      riskCheckWindTurbines: false,
-      riskCheckUrbanAreas: false,
-      riskCheckWater: false,
-      riskCheckLivestock: false,
+      riskCheckSolarCells: false,
+      riskCheckWildlifeAreas: false,
+      riskCheckCityCenterNoWind: false,
       landingOptionsTypical: 'Villacastín area, open fields North of Segovia',
       landingOptionsAvoid: 'Forest areas East, urban center',
       atsFplStatus: 'no',
@@ -284,10 +283,7 @@ Generated: ${new Date().toISOString()}
               </div>
               <div>
                 <label className="label">Determination Method</label>
-                <select {...register('massDeterminationMethod')} className="input">
-                  <option value="declared">Declared (Standard)</option>
-                  <option value="weighed">Weighed (Actual)</option>
-                </select>
+                <input className="input" value="Declared (Standard)" readOnly />
               </div>
               <div>
                 <label className="label">MTOM (kg)</label>
@@ -515,55 +511,39 @@ Generated: ${new Date().toISOString()}
           {/* Section 7: Fuel & Consumables */}
           <section className="card">
             <h2 className="section-title">7. Fuel Management & Reservas</h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="label">Total On Board (L)</label>
                 <input type="number" step="0.5" {...register('fuelTotalLiters', { valueAsNumber: true })} className="input" />
               </div>
               <div>
-                <label className="label">Est. Consumption (L)</label>
+                <label className="label">Est. Consumption for 1 hour flight (L)</label>
                 <input type="number" step="0.5" {...register('fuelEstimatedConsumptionLiters', { valueAsNumber: true })} className="input" />
-              </div>
-              <div>
-                <label className="label">Consumption Data Source</label>
-                <input {...register('fuelConsumptionSource')} className="input text-sm" placeholder="e.g. AFM Table 4.2" />
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4 p-4 rounded-lg bg-input-bg/40 border border-input-border">
+            <div className={`p-4 rounded-lg border flex items-center justify-between ${fuelReserveSufficient ? 'bg-success/10 border-success text-success' : 'bg-danger/10 border-danger text-danger'}`}>
               <div>
-                <label className="label">Reserve Criterion</label>
-                <select {...register('fuelReserveCriterion')} className="input">
-                  <option value="30min">30 Minutes (Standard AMC)</option>
-                  <option value="15min">15 Minutes (Local/AMC Justified)</option>
-                </select>
-              </div>
-              <div>
-                <label className="label">Reserve Status</label>
-                <div className={`text-xl font-bold ${fuelReserveSufficient ? 'text-success' : 'text-danger'} mt-2`}>
-                  {fuelReserveMinutes} min {fuelReserveSufficient ? '✓' : '✗'}
+                <div className="font-bold flex items-center gap-2">
+                  {fuelReserveSufficient ? '✅' : '❌'} Fuel Reserve: {fuelReserveMinutes} minutes
                 </div>
-                <p className="text-[10px] opacity-60">Req: {watchedValues.fuelReserveCriterion === '15min' ? '15' : '30'} min</p>
+                <p className="text-xs opacity-80">Required minimum: 30 minutes</p>
               </div>
-              {watchedValues.fuelReserveCriterion === '15min' && (
-                <div className="col-span-full">
-                  <label className="label">Justification for 15m Reserve</label>
-                  <input {...register('fuelReserveJustification')} className="input" placeholder="e.g. Single tank, landing area in sight" />
-                </div>
-              )}
+              <div className="text-sm font-medium">
+                {fuelReserveSufficient ? 'Requirement satisfied' : 'WARNING: Insufficient reserve'}
+              </div>
             </div>
           </section>
 
           {/* Section 8: Risk Assessment */}
           <section className="card">
             <h2 className="section-title">8. Risk Assessment & Special Factors</h2>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               {[
                 { id: 'riskCheckPowerLines', label: '⚡ Power Lines' },
-                { id: 'riskCheckWindTurbines', label: '🎡 Wind Turbines' },
-                { id: 'riskCheckUrbanAreas', label: '🏙️ Urban Areas' },
-                { id: 'riskCheckWater', label: '💧 Body Water' },
-                { id: 'riskCheckLivestock', label: '🐄 Livestock' }
+                { id: 'riskCheckSolarCells', label: '☀️ Solar Cells' },
+                { id: 'riskCheckWildlifeAreas', label: '🦒 Wildlife Areas' },
+                { id: 'riskCheckCityCenterNoWind', label: '🏙️ City Center without Wind' }
               ].map(item => (
                 <label key={item.id} className="flex flex-col items-center justify-center p-3 rounded-lg border border-input-border/30 bg-input-bg/10 hover:bg-primary/10 cursor-pointer transition-all text-center">
                   <input type="checkbox" {...register(item.id as any)} className="w-5 h-5 mb-2" />
@@ -596,8 +576,8 @@ Generated: ${new Date().toISOString()}
               type="submit"
               disabled={isSubmitting || !loadWeightStatus || !fuelReserveSufficient || !isTOMValid}
               className={`w-full py-4 rounded-xl text-lg font-bold shadow-2xl transition-all ${(loadWeightStatus && fuelReserveSufficient && isTOMValid)
-                  ? 'bg-primary text-white hover:scale-[1.02] active:scale-95'
-                  : 'bg-foreground/20 text-foreground/40 cursor-not-allowed'
+                ? 'bg-primary text-white hover:scale-[1.02] active:scale-95'
+                : 'bg-foreground/20 text-foreground/40 cursor-not-allowed'
                 }`}
             >
               {isSubmitting ? 'Generating...' : '✈️ Generate EASA Operational Flight Plan'}
