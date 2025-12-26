@@ -139,58 +139,108 @@ export default function FlightPlanPage() {
   const generateFlightPlanSummary = (data: FlightPlanFormData): string => {
     const totalPaxWeight = data.passengers.reduce((sum, p) => sum + p.weight, 0);
     const clothingWeight = data.clothingLuggageIncluded ? data.passengers.length * 3 : 0;
+    const trafficLoad = totalPaxWeight + clothingWeight;
+    const fuelWeightVal = Math.round(data.fuelTotalLiters * 0.51 * 100) / 100;
+    const tomVal = (selectedAircraft?.empty_weight_kg || 0) + fuelWeightVal + trafficLoad;
 
     return `
-OPERATIONAL FLIGHT PLAN
-========================
+OPERATIONAL FLIGHT PLAN - ID: ${data.flightID || 'N/A'}
+====================================================
+
+IDENTIFICATION & PREPARATION
+----------------------------
+Date: ${data.flightDate}
+Prepared By: ${data.preparedBy}
+ATS FPL: ${data.atsFplStatus.toUpperCase()} ${data.atsFplRef ? '(Ref: ' + data.atsFplRef + ')' : ''}
+${data.atsFplStatus === 'no' ? 'Responsible for Alerting: ' + (data.alertingResponsiblePerson || 'N/A') : ''}
 
 AIRCRAFT INFORMATION
 --------------------
 Registration: ${data.aircraftRegistration || 'N/A'}
 Type: ${data.aircraftType || 'N/A'}
+Empty Mass: ${selectedAircraft?.empty_weight_kg || 0} kg
+Max Take-Off Mass (MTOM): ${selectedAircraft?.mtom_kg || 0} kg
+Determination Method: DECLARED
 
-FLIGHT DETAILS
---------------
-Date: ${data.flightDate}
+PILOT & CREW
+------------
 Pilot: ${data.pilotName}
 License: ${data.pilotLicense || 'N/A'}
 
-PILOT DECLARATION
------------------
-✓ No alcohol or drugs consumed
-✓ Adequate rest as per EASA regulations
-✓ Pre-flight inspection completed
+AERONAUTICAL INFORMATION
+------------------------
+Weather Source: ${data.weatherSource}
+Obs. In Situ: ${data.weatherObsInSitu || 'None'}
+NOTAMs Checked: ${data.notamsChecked ? 'YES ✓' : 'NO ✗'}
+Airspace Affected: ${data.airspaceAffected || 'N/A'}
+ATS Frequencies: ${data.frequenciesATS || 'N/A'}
+
+ALTERNATIVE PLAN (PLAN B)
+-------------------------
+Plan: ${data.alternativePlan}
+Criteria: ${data.alternativeCriteria}
 
 WEATHER CONDITIONS
 ------------------
-Source: OpenMeteo API (Segovia: 40.9429°N, 4.1088°W)
-Temperature: ${data.temperatureCelsius}°C
-QNH: ${data.qnhHpa || 'N/A'} hPa
+Temp: ${data.temperatureCelsius}°C | QNH: ${data.qnhHpa || 'N/A'} hPa
 Surface Wind: ${data.windSurfaceSpeed || 'N/A'} km/h @ ${data.windSurfaceDirection || 'N/A'}°
-Wind @ 1000m: ${data.windAltitude1000mSpeed || 'N/A'} km/h @ ${data.windAltitude1000mDirection || 'N/A'}°
-Wind @ 2000m: ${data.windAltitude2000mSpeed || 'N/A'} km/h @ ${data.windAltitude2000mDirection || 'N/A'}°
+Wind @ 1000m: ${data.windAltitude1000mSpeed || 'N/h'} km/h @ ${data.windAltitude1000mDirection || 'N/A'}°
+Wind @ 2000m: ${data.windAltitude2000mSpeed || 'N/h'} km/h @ ${data.windAltitude2000mDirection || 'N/A'}°
 
-PERFORMANCE CALCULATIONS
-------------------------
-Calculated Lift: ${calculatedLift.toFixed(2)} kg
+VALIDATIONS (BOP.BAS.145/150/155)
+---------------------------------
+✓ Meteo >= VFR Minima
+✓ Inside AFM Limitations
+✓ Take-off conditions OK
+✓ Landing conditions OK
+
+MASS & DATA DOCUMENTATION
+-------------------------
+Empty Mass: ${selectedAircraft?.empty_weight_kg || 0} kg
+Fuel Mass: ${fuelWeightVal} kg
+Traffic Load: ${trafficLoad} kg
+-------------------------
+TOTAL TAKE-OFF MASS: ${tomVal.toFixed(2)} kg
+MTOM Margin: ${((selectedAircraft?.mtom_kg || 0) - tomVal).toFixed(2)} kg ${tomVal <= (selectedAircraft?.mtom_kg || 0) ? '✓' : '✗'}
+
+PERFORMANCE (LIFT)
+------------------
+Calculated Lift (@ 100°C): ${calculatedLift.toFixed(2)} kg
 Available Payload: ${availablePayload.toFixed(2)} kg
+Payload Margin: ${(availablePayload - trafficLoad).toFixed(2)} kg ${trafficLoad <= availablePayload ? '✓' : '✗'}
 
 PASSENGER MANIFEST
 ------------------
-${data.passengers.map((p, i) => `${i + 1}. ${p.name} - ${p.weight} kg`).join('\n')}
-
-Total Passenger Weight: ${totalPaxWeight} kg
-Clothing/Luggage Weight Included: ${data.clothingLuggageIncluded ? 'YES (+' + clothingWeight + 'kg)' : 'NO'}
-Total Weight: ${totalPaxWeight + clothingWeight} kg
+${data.passengers.map((p, i) => `${i + 1}. ${p.name} - ${p.weight} kg ${p.hasSpecialNeeds ? '(Special)' : ''}`).join('\n')}
+Total Pax Weight: ${totalPaxWeight} kg
+Clothing/Luggage: ${clothingWeight} kg
+Total Traffic Load: ${trafficLoad} kg
 
 FUEL MANAGEMENT
 ---------------
-Total Fuel: ${data.fuelTotalLiters} L
-Estimated Consumption: ${data.fuelEstimatedConsumptionLiters} L
-Reserve: ${fuelReserveMinutes} minutes
-Reserve Sufficient (≥30 min): ${fuelReserveSufficient ? 'YES ✓' : 'NO ✗'}
+Total: ${data.fuelTotalLiters} L | Est. Consumption (1h): ${data.fuelEstimatedConsumptionLiters} L
+Reserve: ${fuelReserveMinutes} min ${fuelReserveSufficient ? '✓' : '✗'} (Required: 30 min)
 
-========================
+RISK ASSESSMENT (SPECIAL FACTORS)
+---------------------------------
+Power Lines: ${data.riskCheckPowerLines ? '[X]' : '[ ]'}
+Solar Cells: ${data.riskCheckSolarCells ? '[X]' : '[ ]'}
+Wildlife Areas: ${data.riskCheckWildlifeAreas ? '[X]' : '[ ]'}
+City Center (No Wind): ${data.riskCheckCityCenterNoWind ? '[X]' : '[ ]'}
+Notes: ${data.specialRiskNotes || 'None'}
+Typical Landing: ${data.landingOptionsTypical || 'Open fields'}
+Avoid Landing: ${data.landingOptionsAvoid || 'Forests/Urban'}
+
+DECLARATIONS & BRIEFINGS
+-----------------------
+✓ No Alcohol/Drugs
+✓ Adequate Rest
+✓ Pre-flight Inspection Completed
+✓ Passenger Briefing Completed
+✓ Dangerous Goods Info Given
+✓ No Smoking / No Weapons
+
+====================================================
 Generated: ${new Date().toISOString()}
     `.trim();
   };
