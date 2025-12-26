@@ -15,8 +15,9 @@ export interface AircraftEquipment {
     burner: string;
     cylinders: string;
 
-    // Total empty weight (envelope + basket + burner + cylinders)
+    // Weights
     empty_weight_kg: number;
+    mtom_kg: number; // Maximum Take-Off Mass
 }
 
 export const AIRCRAFT_FLEET: AircraftEquipment[] = [
@@ -29,7 +30,8 @@ export const AIRCRAFT_FLEET: AircraftEquipment[] = [
         basket: 'Ultramagic 4-passenger wicker basket',
         burner: 'Ultramagic MK-32 double burner',
         cylinders: '4x 40L stainless steel cylinders',
-        empty_weight_kg: 485, // Dummy - user will provide actual
+        empty_weight_kg: 485,
+        mtom_kg: 3300,
     },
     {
         registration: 'CS-UMB',
@@ -40,7 +42,8 @@ export const AIRCRAFT_FLEET: AircraftEquipment[] = [
         basket: 'Ultramagic 6-passenger wicker basket',
         burner: 'Ultramagic MK-32 triple burner',
         cylinders: '6x 40L stainless steel cylinders',
-        empty_weight_kg: 520, // Dummy - user will provide actual
+        empty_weight_kg: 520,
+        mtom_kg: 3300,
     },
     {
         registration: 'CS-CAM',
@@ -51,7 +54,8 @@ export const AIRCRAFT_FLEET: AircraftEquipment[] = [
         basket: 'Cameron 8-passenger wicker basket',
         burner: 'Cameron Dual Burner System',
         cylinders: '6x 40L titanium cylinders',
-        empty_weight_kg: 550, // Dummy - user will provide actual
+        empty_weight_kg: 550,
+        mtom_kg: 3500,
     },
 ];
 

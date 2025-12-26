@@ -61,11 +61,12 @@ export function calculateAvailablePayload(
 
 /**
  * Calculate fuel reserve in minutes
+ * AMC1 BOP.BAS.160 requires documented calculation
  */
 export function calculateFuelReserve(
     totalFuelLiters: number,
     estimatedConsumptionLiters: number,
-    consumptionRateLitersPerHour: number = 40 // Typical consumption rate
+    consumptionRateLitersPerHour: number = 40 // Based on manufacturer data/pilot experience
 ): number {
     const reserveFuel = totalFuelLiters - estimatedConsumptionLiters;
     const reserveMinutes = (reserveFuel / consumptionRateLitersPerHour) * 60;
@@ -73,10 +74,13 @@ export function calculateFuelReserve(
 }
 
 /**
- * Check if fuel reserve meets EASA requirements (30 min minimum)
+ * Check if fuel reserve meets required criterion
+ * Standard: 30 min (AMC1 BOP.BAS.160)
+ * Min: 15 min (Operation local / single tank)
  */
-export function isFuelReserveSufficient(reserveMinutes: number): boolean {
-    return reserveMinutes >= 30;
+export function isFuelReserveSufficient(reserveMinutes: number, criterion: '30min' | '15min' = '30min'): boolean {
+    const minRequired = criterion === '15min' ? 15 : 30;
+    return reserveMinutes >= minRequired;
 }
 
 /**
@@ -84,5 +88,17 @@ export function isFuelReserveSufficient(reserveMinutes: number): boolean {
  * Propane density: ~0.51 kg/L
  */
 export function fuelLitersToKg(liters: number): number {
-    return liters * 0.51;
+    return Math.round(liters * 0.51 * 100) / 100;
+}
+
+/**
+ * Calculate Take-Off Mass (TOM)
+ * TOM = Empty Mass + Fuel Mass + Traffic Load
+ */
+export function calculateTOM(
+    emptyMassKg: number,
+    fuelMassKg: number,
+    trafficLoadKg: number
+): number {
+    return Math.round((emptyMassKg + fuelMassKg + trafficLoadKg) * 100) / 100;
 }

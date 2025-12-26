@@ -17,16 +17,48 @@ export default function FlightPlanPage() {
   const { register, handleSubmit, formState: { errors }, watch, setValue, control } = useForm<FlightPlanFormData>({
     resolver: zodResolver(flightPlanSchema),
     defaultValues: {
+      flightID: `FLT-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+      preparedBy: '',
       aircraftRegistration: '',
       aircraftType: '',
-      flightDate: '',
+      massDeterminationMethod: 'declared',
+      flightDate: new Date().toISOString().split('T')[0],
+      pilotName: '',
+      pilotLicense: '',
+      weatherSource: 'OpenMeteo API + Visual Observation',
+      weatherObsInSitu: '',
+      airspaceAffected: 'Segovia CTR/LEST Area',
+      notamsChecked: false,
+      notamReference: '',
+      frequenciesATS: 'Madrid Info: 124.925',
+      alternativePlan: 'Cancel flight / Landing in designated safe area',
+      alternativeCriteria: 'Wind > 15kt / Low clouds < 1000ft',
+      meteoMinimaVFR: false,
+      afmLimitationsCheck: false,
+      takeOffConditionsOK: false,
+      landingConditionsOK: false,
       pilotDeclarationAlcoholDrugs: false,
       pilotDeclarationRest: false,
       pilotDeclarationPreFlight: false,
-      passengers: [{ name: '', weight: 0 }],
+      noSmoking: false,
+      noWeapons: false,
+      passengers: [{ name: '', weight: 0, hasSpecialNeeds: false }],
       clothingLuggageIncluded: false,
+      passengerBriefingCompleted: false,
+      dangerousGoodsBriefing: false,
       fuelTotalLiters: 0,
       fuelEstimatedConsumptionLiters: 0,
+      fuelReserveCriterion: '30min',
+      fuelReserveJustification: '',
+      fuelConsumptionSource: 'Manufacturer Datasheet',
+      riskCheckPowerLines: false,
+      riskCheckWindTurbines: false,
+      riskCheckUrbanAreas: false,
+      riskCheckWater: false,
+      riskCheckLivestock: false,
+      landingOptionsTypical: 'Villacastín area, open fields North of Segovia',
+      landingOptionsAvoid: 'Forest areas East, urban center',
+      atsFplStatus: 'no',
     },
   });
 
@@ -40,26 +72,33 @@ export default function FlightPlanPage() {
   const selectedAircraft = AIRCRAFT_FLEET.find(a => a.registration === watchedValues.aircraftRegistration);
 
   // Calculate performance metrics
-  const calculatedLift = watchedValues.temperatureCelsius && selectedAircraft
+  const calculatedLift = (watchedValues.temperatureCelsius || watchedValues.temperatureCelsius === 0) && selectedAircraft
     ? calculateLift(selectedAircraft.volume_cubic_feet, watchedValues.temperatureCelsius, 1000)
     : 0;
 
   const fuelWeightKg = fuelLitersToKg(watchedValues.fuelTotalLiters || 0);
+  const totalPassengerWeight = (watchedValues.passengers || []).reduce((sum, p) => sum + (p.weight || 0), 0);
+  const clothingWeight = watchedValues.clothingLuggageIncluded ? (watchedValues.passengers?.length || 0) * 3 : 0;
+  const trafficLoad = totalPassengerWeight + clothingWeight;
+
+  const takeOffMass = selectedAircraft
+    ? selectedAircraft.empty_weight_kg + fuelWeightKg + trafficLoad
+    : 0;
+
+  const mtomKg = selectedAircraft?.mtom_kg || 0;
+  const isTOMValid = mtomKg > 0 ? takeOffMass <= mtomKg : true;
+
   const availablePayload = selectedAircraft
     ? calculateAvailablePayload(calculatedLift, selectedAircraft.empty_weight_kg, fuelWeightKg)
     : 0;
 
-  const totalPassengerWeight = (watchedValues.passengers || []).reduce((sum, p) => sum + (p.weight || 0), 0);
-  const clothingWeight = watchedValues.clothingLuggageIncluded ? (watchedValues.passengers?.length || 0) * 3 : 0;
-  const totalWeight = totalPassengerWeight + clothingWeight;
+  const loadWeightStatus = trafficLoad <= availablePayload;
 
   const fuelReserveMinutes = calculateFuelReserve(
     watchedValues.fuelTotalLiters || 0,
     watchedValues.fuelEstimatedConsumptionLiters || 0
   );
-  const fuelReserveSufficient = isFuelReserveSufficient(fuelReserveMinutes);
-
-  const loadWeightStatus = totalWeight <= availablePayload;
+  const fuelReserveSufficient = isFuelReserveSufficient(fuelReserveMinutes, watchedValues.fuelReserveCriterion);
 
   const handleFetchWeather = async () => {
     setIsLoadingWeather(true);
@@ -169,12 +208,61 @@ Generated: ${new Date().toISOString()}
         </header>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Aircraft Selection */}
+          {/* Section 1: Identification & Preparation */}
           <section className="card">
-            <h2 className="section-title">Aircraft Information</h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="section-title">1. Identification & Preparation</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="label">Aircraft Registration</label>
+                <label className="label">Flight ID</label>
+                <input {...register('flightID')} className="input" placeholder="FLT-2025-XXX" />
+              </div>
+              <div>
+                <label className="label">Prepared By</label>
+                <input {...register('preparedBy')} className="input" placeholder="Name of person preparing" />
+                {errors.preparedBy && <p className="error">{errors.preparedBy.message}</p>}
+              </div>
+              <div>
+                <label className="label">Flight Date</label>
+                <input type="date" {...register('flightDate')} className="input" />
+                {errors.flightDate && <p className="error">{errors.flightDate.message}</p>}
+              </div>
+              <div>
+                <label className="label">ATS FPL Status</label>
+                <select {...register('atsFplStatus')} className="input">
+                  <option value="yes">Presented</option>
+                  <option value="no">Not Presented</option>
+                  <option value="not_required">Not Required</option>
+                </select>
+              </div>
+            </div>
+
+            {watchedValues.atsFplStatus === 'yes' && (
+              <div className="mt-4">
+                <label className="label">FPL Reference</label>
+                <input {...register('atsFplRef')} className="input" placeholder="e.g. LEST1234" />
+              </div>
+            )}
+
+            {watchedValues.atsFplStatus === 'no' && (
+              <div className="mt-4 grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Alerting Responsible Person</label>
+                  <input {...register('alertingResponsiblePerson')} className="input" placeholder="Name/Contact" />
+                </div>
+                <div className="flex items-center gap-2 mt-8">
+                  <input type="checkbox" {...register('alertingOverdueProcedure')} id="alertingOverdue" className="w-5 h-5" />
+                  <label htmlFor="alertingOverdue" className="cursor-pointer">Overdue procedure briefed</label>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Section 2: Aircraft & Mass Identification */}
+          <section className="card">
+            <h2 className="section-title">2. Aircraft & Mass System</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="label">Registration</label>
                 <select
                   {...register('aircraftRegistration')}
                   className="input"
@@ -189,51 +277,39 @@ Generated: ${new Date().toISOString()}
                   <option value="">Select Aircraft</option>
                   {AIRCRAFT_FLEET.map(aircraft => (
                     <option key={aircraft.registration} value={aircraft.registration}>
-                      {aircraft.registration} - {aircraft.model}
+                      {aircraft.registration} ({aircraft.model})
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Model</label>
-                <input {...register('aircraftType')} className="input" placeholder="Auto-filled" readOnly />
+                <label className="label">Determination Method</label>
+                <select {...register('massDeterminationMethod')} className="input">
+                  <option value="declared">Declared (Standard)</option>
+                  <option value="weighed">Weighed (Actual)</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">MTOM (kg)</label>
+                <input className="input" value={selectedAircraft?.mtom_kg || 0} readOnly />
               </div>
             </div>
 
-            {/* Equipment Details */}
-            {watchedValues.aircraftRegistration && (() => {
-              const aircraft = AIRCRAFT_FLEET.find(a => a.registration === watchedValues.aircraftRegistration);
-              if (aircraft) {
-                return (
-                  <div className="mt-4 p-4 bg-input-bg/50 rounded-lg border border-input-border">
-                    <h3 className="font-bold text-accent mb-2">Equipment Configuration</h3>
-                    <div className="grid md:grid-cols-2 gap-2 text-sm">
-                      <div><span className="text-foreground/60">Serial Number:</span> {aircraft.serialNumber}</div>
-                      <div><span className="text-foreground/60">Volume:</span> {aircraft.volume_cubic_feet.toLocaleString()} ft³</div>
-                      <div><span className="text-foreground/60">Envelope:</span> {aircraft.envelope}</div>
-                      <div><span className="text-foreground/60">Basket:</span> {aircraft.basket}</div>
-                      <div><span className="text-foreground/60">Burner:</span> {aircraft.burner}</div>
-                      <div><span className="text-foreground/60">Cylinders:</span> {aircraft.cylinders}</div>
-                      <div className="md:col-span-2"><span className="text-foreground/60">Empty Weight:</span> <span className="font-bold text-accent">{aircraft.empty_weight_kg} kg</span></div>
-                    </div>
-                  </div>
-                );
-              }
-              return null;
-            })()}
+            {selectedAircraft && (
+              <div className="mt-4 p-4 bg-input-bg/30 rounded-lg border border-input-border grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+                <div><span className="text-foreground/50">S/N:</span> {selectedAircraft.serialNumber}</div>
+                <div><span className="text-foreground/50">Volume:</span> {selectedAircraft.volume_cubic_feet}ft³</div>
+                <div className="col-span-2"><span className="text-foreground/50">Config:</span> {selectedAircraft.envelope} / {selectedAircraft.basket}</div>
+              </div>
+            )}
           </section>
 
-          {/* Flight Details */}
+          {/* Section 3: Pilot & Legal Declarations */}
           <section className="card">
-            <h2 className="section-title">Flight Details</h2>
-            <div className="grid md:grid-cols-3 gap-4">
+            <h2 className="section-title">3. Pilot & Operational Declaration</h2>
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="label">Flight Date</label>
-                <input type="date" {...register('flightDate')} className="input" />
-                {errors.flightDate && <p className="error">{errors.flightDate.message}</p>}
-              </div>
-              <div>
-                <label className="label">Pilot</label>
+                <label className="label">Pilot-in-Command</label>
                 <select
                   {...register('pilotName')}
                   className="input"
@@ -247,247 +323,299 @@ Generated: ${new Date().toISOString()}
                 >
                   <option value="">Select Pilot</option>
                   {PILOTS.map(pilot => (
-                    <option key={pilot.id} value={pilot.name}>
-                      {pilot.name} {!pilot.isValid && '⚠️'}
-                    </option>
+                    <option key={pilot.id} value={pilot.name}>{pilot.name}</option>
                   ))}
                 </select>
-                {errors.pilotName && <p className="error">{errors.pilotName.message}</p>}
-                {watchedValues.pilotName && (() => {
-                  const selectedPilot = PILOTS.find(p => p.name === watchedValues.pilotName);
-                  if (selectedPilot) {
-                    const validation = validatePilot(selectedPilot);
-                    if (validation.warnings.length > 0) {
-                      return (
-                        <div className="mt-2 p-2 bg-warning/20 border border-warning rounded text-sm">
-                          <div className="font-bold">⚠️ Warnings:</div>
-                          {validation.warnings.map((w, i) => <div key={i}>• {w}</div>)}
-                        </div>
-                      );
-                    }
-                  }
-                  return null;
-                })()}
               </div>
               <div>
-                <label className="label">License</label>
-                <input {...register('pilotLicense')} className="input" placeholder="Auto-filled" readOnly />
+                <label className="label">License Number</label>
+                <input {...register('pilotLicense')} className="input" readOnly placeholder="Auto-filled" />
               </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-x-8 gap-y-2">
+              {[
+                { id: 'pilotDeclarationAlcoholDrugs', label: 'No Alcohol/Drugs' },
+                { id: 'pilotDeclarationRest', label: 'Adequate Rest' },
+                { id: 'pilotDeclarationPreFlight', label: 'Pre-flight Inspection OK' },
+                { id: 'noSmoking', label: 'No Smoking in/around balloon' },
+                { id: 'noWeapons', label: 'No Weapons on board' },
+                { id: 'meteoMinimaVFR', label: 'Meteo >= VFR Minima' },
+                { id: 'afmLimitationsCheck', label: 'Within AFM Limitations' },
+                { id: 'takeOffConditionsOK', label: 'Take-off Area OK' },
+                { id: 'landingConditionsOK', label: 'Landing Forecast OK' }
+              ].map(item => (
+                <label key={item.id} className="flex items-center gap-3 p-2 bg-input-bg/40 rounded hover:bg-input-bg/60 cursor-pointer transition-colors text-sm">
+                  <input type="checkbox" {...register(item.id as any)} className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </label>
+              ))}
             </div>
           </section>
 
-          {/* Pilot Declaration */}
+          {/* Section 4: Aeronautical & Weather Info */}
           <section className="card">
-            <h2 className="section-title">Pilot Pre-Flight Declaration</h2>
-            <p className="text-sm text-foreground/70 mb-4">
-              As Pilot-in-Command, I declare that:
-            </p>
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 cursor-pointer p-3 bg-input-bg/50 rounded-lg border border-input-border hover:border-primary transition-colors">
-                <input
-                  type="checkbox"
-                  {...register('pilotDeclarationAlcoholDrugs')}
-                  className="w-5 h-5 mt-0.5"
-                />
-                <div>
-                  <div className="font-medium">No Alcohol or Drugs</div>
-                  <div className="text-sm text-foreground/60">I have not consumed alcohol or drugs that may affect my ability to operate the aircraft safely</div>
-                </div>
-              </label>
-              {errors.pilotDeclarationAlcoholDrugs && <p className="error">{errors.pilotDeclarationAlcoholDrugs.message}</p>}
-
-              <label className="flex items-start gap-3 cursor-pointer p-3 bg-input-bg/50 rounded-lg border border-input-border hover:border-primary transition-colors">
-                <input
-                  type="checkbox"
-                  {...register('pilotDeclarationRest')}
-                  className="w-5 h-5 mt-0.5"
-                />
-                <div>
-                  <div className="font-medium">Adequate Rest</div>
-                  <div className="text-sm text-foreground/60">I have had adequate rest as required by EASA regulations and am fit to fly</div>
-                </div>
-              </label>
-              {errors.pilotDeclarationRest && <p className="error">{errors.pilotDeclarationRest.message}</p>}
-
-              <label className="flex items-start gap-3 cursor-pointer p-3 bg-input-bg/50 rounded-lg border border-input-border hover:border-primary transition-colors">
-                <input
-                  type="checkbox"
-                  {...register('pilotDeclarationPreFlight')}
-                  className="w-5 h-5 mt-0.5"
-                />
-                <div>
-                  <div className="font-medium">Pre-Flight Inspection Completed</div>
-                  <div className="text-sm text-foreground/60">I have completed the mandatory pre-flight inspection and the aircraft is airworthy</div>
-                </div>
-              </label>
-              {errors.pilotDeclarationPreFlight && <p className="error">{errors.pilotDeclarationPreFlight.message}</p>}
-            </div>
-          </section>
-
-          {/* Weather */}
-          <section className="card">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h2 className="section-title mb-0">Weather Data</h2>
-                <p className="text-sm text-foreground/60 mt-1">Source: OpenMeteo API (Segovia: 40.9429°N, 4.1088°W)</p>
-              </div>
-              <button
-                type="button"
-                onClick={handleFetchWeather}
-                disabled={isLoadingWeather}
-                className="btn-secondary"
-              >
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+              <h2 className="section-title mb-0">4. Aeronautical & Weather Information</h2>
+              <button type="button" onClick={handleFetchWeather} disabled={isLoadingWeather} className="btn-secondary whitespace-nowrap">
                 {isLoadingWeather ? 'Loading...' : '🌤️ Fetch Live Weather'}
               </button>
             </div>
-            <div className="grid md:grid-cols-4 gap-4">
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="label">Temperature (°C)</label>
+                <label className="label">Weather Source(s)</label>
+                <input {...register('weatherSource')} className="input" placeholder="e.g. OpenMeteo, AEMET, Windy" />
+              </div>
+              <div>
+                <label className="label">In Situ Observation</label>
+                <input {...register('weatherObsInSitu')} className="input" placeholder="Visibility, clouds, actual wind" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="label">Temp (°C)</label>
                 <input type="number" step="0.1" {...register('temperatureCelsius', { valueAsNumber: true })} className="input" />
-                {errors.temperatureCelsius && <p className="error">{errors.temperatureCelsius.message}</p>}
               </div>
               <div>
                 <label className="label">QNH (hPa)</label>
                 <input type="number" {...register('qnhHpa', { valueAsNumber: true })} className="input" />
               </div>
-              <div>
-                <label className="label">Wind Surface (km/h)</label>
-                <input type="number" {...register('windSurfaceSpeed', { valueAsNumber: true })} className="input" />
-              </div>
-              <div>
-                <label className="label">Direction (°)</label>
-                <input type="number" {...register('windSurfaceDirection', { valueAsNumber: true })} className="input" />
+              <div className="lg:col-span-2">
+                <label className="label">Frequencies / ATS Info</label>
+                <input {...register('frequenciesATS')} className="input" placeholder="e.g. Segovia Info 118.0, Madrid Info 124.9" />
               </div>
             </div>
-            <div className="grid md:grid-cols-4 gap-4 mt-4">
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="label">Wind @ 1000m (km/h)</label>
-                <input type="number" {...register('windAltitude1000mSpeed', { valueAsNumber: true })} className="input" />
+                <label className="label">Airspace Affected</label>
+                <input {...register('airspaceAffected')} className="input" placeholder="e.g. Segovia CTR, LER-56" />
+              </div>
+              <div className="flex flex-col justify-end">
+                <label className="flex items-center gap-2 mb-2 label cursor-pointer">
+                  <input type="checkbox" {...register('notamsChecked')} className="w-5 h-5" />
+                  <span>NOTAMs Checked</span>
+                </label>
+                <input {...register('notamReference')} className="input" placeholder="Reference or valid until" />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
+              <h3 className="col-span-full text-sm font-bold opacity-70">Plan B: Alternative Course of Action</h3>
+              <div>
+                <label className="label">Alternative Plan</label>
+                <textarea {...register('alternativePlan')} className="input text-sm h-20" placeholder="Where to go if main zone is blocked" />
               </div>
               <div>
-                <label className="label">Direction (°)</label>
-                <input type="number" {...register('windAltitude1000mDirection', { valueAsNumber: true })} className="input" />
-              </div>
-              <div>
-                <label className="label">Wind @ 2000m (km/h)</label>
-                <input type="number" {...register('windAltitude2000mSpeed', { valueAsNumber: true })} className="input" />
-              </div>
-              <div>
-                <label className="label">Direction (°)</label>
-                <input type="number" {...register('windAltitude2000mDirection', { valueAsNumber: true })} className="input" />
+                <label className="label">Evaluation Criteria</label>
+                <textarea {...register('alternativeCriteria')} className="input text-sm h-20" placeholder="Minimums or triggers for Plan B" />
               </div>
             </div>
           </section>
 
-          {/* Performance Calculations */}
-          <section className="card bg-gradient-to-br from-card-bg to-primary/5">
-            <h2 className="section-title">Performance Calculations</h2>
-            <div className="grid md:grid-cols-3 gap-4">
+          {/* Section 5: Mass & Performance */}
+          <section className="card">
+            <h2 className="section-title">5. Mass & Performance Verification</h2>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="stat-card">
-                <div className="stat-label">Calculated Lift</div>
-                <div className="stat-value">{calculatedLift.toFixed(1)} kg</div>
+                <div className="stat-label">Empty Mass</div>
+                <div className="stat-value text-sm">{selectedAircraft?.empty_weight_kg || 0} kg</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">Balloon Empty Weight</div>
-                <div className="stat-value">{selectedAircraft?.empty_weight_kg || 0} kg</div>
+                <div className="stat-label">Fuel Mass</div>
+                <div className="stat-value text-sm">{fuelWeightKg.toFixed(1)} kg</div>
               </div>
               <div className="stat-card">
-                <div className="stat-label">Available Payload</div>
-                <div className={`stat-value ${loadWeightStatus ? 'text-success' : 'text-danger'}`}>
-                  {availablePayload.toFixed(1)} kg
+                <div className="stat-label">Take-Off Mass (TOM)</div>
+                <div className={`stat-value text-lg ${isTOMValid ? 'text-success' : 'text-danger'}`}>
+                  {takeOffMass.toFixed(1)} kg
+                </div>
+                <div className="text-[10px] opacity-70">Limit (MTOM): {mtomKg} kg</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-label">Calculated Lift @ 100°C</div>
+                <div className="stat-value text-lg text-accent">{calculatedLift.toFixed(1)} kg</div>
+              </div>
+            </div>
+
+            <div className="stat-card bg-primary/10 border-primary/20 p-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="stat-label">Payload Margin</div>
+                  <div className={`text-2xl font-bold ${loadWeightStatus ? 'text-success' : 'text-danger'}`}>
+                    {(availablePayload - trafficLoad).toFixed(1)} kg
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs opacity-60">Available Payload: {availablePayload.toFixed(1)} kg</div>
+                  <div className="text-xs opacity-60">Traffic Load: {trafficLoad} kg</div>
                 </div>
               </div>
+              {!loadWeightStatus && <p className="text-danger text-xs font-bold mt-2">⚠️ OVERLOAD: Reduced life expectancy of envelope or safety risk!</p>}
+              {!isTOMValid && <p className="text-danger text-xs font-bold mt-1">⚠️ EXCEEDS MTOM: Restricted by AFM!</p>}
             </div>
           </section>
 
-          {/* Passengers */}
+          {/* Section 6: Passenger Manifest & Briefing */}
           <section className="card">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="section-title mb-0">Passenger Manifest</h2>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    alert('Google Calendar integration requires OAuth2 setup. See documentation for configuration instructions.');
-                  }}
-                  className="btn-secondary"
-                >
-                  📅 Import from Calendar
-                </button>
-                <button type="button" onClick={() => append({ name: '', weight: 0 })} className="btn-secondary">
-                  + Add Passenger
-                </button>
-              </div>
+              <h2 className="section-title mb-0">6. Passenger Manifest</h2>
+              <button type="button" onClick={() => append({ name: '', weight: 0, hasSpecialNeeds: false })} className="btn-secondary text-xs">
+                + Add Passenger
+              </button>
             </div>
-            {fields.map((field, index) => (
-              <div key={field.id} className="grid md:grid-cols-3 gap-4 mb-3">
-                <div className="md:col-span-2">
-                  <label className="label">Name</label>
-                  <input {...register(`passengers.${index}.name`)} className="input" placeholder="Passenger name" />
-                  {errors.passengers?.[index]?.name && <p className="error">{errors.passengers[index]?.name?.message}</p>}
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="label">Weight (kg)</label>
-                    <input type="number" {...register(`passengers.${index}.weight`, { valueAsNumber: true })} className="input" />
-                    {errors.passengers?.[index]?.weight && <p className="error">{errors.passengers[index]?.weight?.message}</p>}
+
+            <div className="space-y-3">
+              {fields.map((field, index) => (
+                <div key={field.id} className="grid md:grid-cols-12 gap-3 items-end p-3 bg-input-bg/20 rounded border border-input-border/30">
+                  <div className="md:col-span-6">
+                    <label className="text-[10px] uppercase opacity-50 block mb-1">Full Name</label>
+                    <input {...register(`passengers.${index}.name`)} className="input text-sm" placeholder="Passenger name" />
                   </div>
-                  {fields.length > 1 && (
-                    <button type="button" onClick={() => remove(index)} className="btn-danger mt-6">
-                      ✕
-                    </button>
-                  )}
+                  <div className="md:col-span-2">
+                    <label className="text-[10px] uppercase opacity-50 block mb-1">Weight (kg)</label>
+                    <input type="number" {...register(`passengers.${index}.weight`, { valueAsNumber: true })} className="input text-sm text-center" />
+                  </div>
+                  <div className="md:col-span-3 flex items-center h-full gap-2">
+                    <input type="checkbox" {...register(`passengers.${index}.hasSpecialNeeds`)} className="w-4 h-4" />
+                    <span className="text-[10px] uppercase opacity-70">Special Needs</span>
+                  </div>
+                  <div className="md:col-span-1">
+                    <button type="button" onClick={() => remove(index)} className="w-full text-danger hover:text-white hover:bg-danger rounded p-1 transition-colors">✕</button>
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer label text-sm">
+                  <input type="checkbox" {...register('clothingLuggageIncluded')} className="w-4 h-4" />
+                  <span>Clothing (+3kg/pax)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer label text-sm">
+                  <input type="checkbox" {...register('passengerBriefingCompleted')} className="w-4 h-4" />
+                  <span>✅ Passenger Briefing Completed</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer label text-sm">
+                  <input type="checkbox" {...register('dangerousGoodsBriefing')} className="w-4 h-4" />
+                  <span>✅ DG / Prohibited Items Screened</span>
+                </label>
               </div>
-            ))}
-            <div className="mt-4 p-4 bg-input-bg rounded-lg border border-input-border">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" {...register('clothingLuggageIncluded')} className="w-5 h-5" />
-                <span>Include clothing & luggage weight (+3kg per passenger)</span>
-              </label>
-              <div className="mt-2 text-sm text-foreground/70">
-                Total Weight: <span className={`font-bold ${loadWeightStatus ? 'text-success' : 'text-danger'}`}>
-                  {totalWeight} kg
-                </span> / {availablePayload.toFixed(1)} kg available
+              <div className="text-right">
+                <div className="text-xs opacity-50">Total Traffic Load</div>
+                <div className={`text-xl font-bold ${loadWeightStatus ? 'text-accent' : 'text-danger'}`}>{trafficLoad} kg</div>
               </div>
             </div>
           </section>
 
-          {/* Fuel */}
+          {/* Section 7: Fuel & Consumables */}
           <section className="card">
-            <h2 className="section-title">Fuel Management</h2>
-            <div className="grid md:grid-cols-2 gap-4">
+            <h2 className="section-title">7. Fuel Management & Reservas</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
               <div>
-                <label className="label">Total Fuel (Liters)</label>
-                <input type="number" step="0.1" {...register('fuelTotalLiters', { valueAsNumber: true })} className="input" />
-                {errors.fuelTotalLiters && <p className="error">{errors.fuelTotalLiters.message}</p>}
+                <label className="label">Total On Board (L)</label>
+                <input type="number" step="0.5" {...register('fuelTotalLiters', { valueAsNumber: true })} className="input" />
               </div>
               <div>
-                <label className="label">Estimated Consumption (Liters)</label>
-                <input type="number" step="0.1" {...register('fuelEstimatedConsumptionLiters', { valueAsNumber: true })} className="input" />
-                {errors.fuelEstimatedConsumptionLiters && <p className="error">{errors.fuelEstimatedConsumptionLiters.message}</p>}
+                <label className="label">Est. Consumption (L)</label>
+                <input type="number" step="0.5" {...register('fuelEstimatedConsumptionLiters', { valueAsNumber: true })} className="input" />
+              </div>
+              <div>
+                <label className="label">Consumption Data Source</label>
+                <input {...register('fuelConsumptionSource')} className="input text-sm" placeholder="e.g. AFM Table 4.2" />
               </div>
             </div>
-            <div className={`mt-4 p-4 rounded-lg border-2 ${fuelReserveSufficient ? 'bg-success/10 border-success' : 'bg-danger/10 border-danger'}`}>
-              <div className="font-bold text-lg">
-                {fuelReserveSufficient ? '✓' : '✗'} Fuel Reserve: {fuelReserveMinutes} minutes
+
+            <div className="grid md:grid-cols-2 gap-4 p-4 rounded-lg bg-input-bg/40 border border-input-border">
+              <div>
+                <label className="label">Reserve Criterion</label>
+                <select {...register('fuelReserveCriterion')} className="input">
+                  <option value="30min">30 Minutes (Standard AMC)</option>
+                  <option value="15min">15 Minutes (Local/AMC Justified)</option>
+                </select>
               </div>
-              <div className="text-sm mt-1">
-                {fuelReserveSufficient ? 'Reserve meets EASA requirement (≥30 min)' : 'WARNING: Reserve below 30 minutes!'}
+              <div>
+                <label className="label">Reserve Status</label>
+                <div className={`text-xl font-bold ${fuelReserveSufficient ? 'text-success' : 'text-danger'} mt-2`}>
+                  {fuelReserveMinutes} min {fuelReserveSufficient ? '✓' : '✗'}
+                </div>
+                <p className="text-[10px] opacity-60">Req: {watchedValues.fuelReserveCriterion === '15min' ? '15' : '30'} min</p>
+              </div>
+              {watchedValues.fuelReserveCriterion === '15min' && (
+                <div className="col-span-full">
+                  <label className="label">Justification for 15m Reserve</label>
+                  <input {...register('fuelReserveJustification')} className="input" placeholder="e.g. Single tank, landing area in sight" />
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Section 8: Risk Assessment */}
+          <section className="card">
+            <h2 className="section-title">8. Risk Assessment & Special Factors</h2>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              {[
+                { id: 'riskCheckPowerLines', label: '⚡ Power Lines' },
+                { id: 'riskCheckWindTurbines', label: '🎡 Wind Turbines' },
+                { id: 'riskCheckUrbanAreas', label: '🏙️ Urban Areas' },
+                { id: 'riskCheckWater', label: '💧 Body Water' },
+                { id: 'riskCheckLivestock', label: '🐄 Livestock' }
+              ].map(item => (
+                <label key={item.id} className="flex flex-col items-center justify-center p-3 rounded-lg border border-input-border/30 bg-input-bg/10 hover:bg-primary/10 cursor-pointer transition-all text-center">
+                  <input type="checkbox" {...register(item.id as any)} className="w-5 h-5 mb-2" />
+                  <span className="text-[10px] font-bold">{item.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="label">Risk Mitigation / Specific Notes</label>
+                <input {...register('specialRiskNotes')} className="input" placeholder="Obstacles, hunters, landing constraints..." />
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="label text-success/80">Typical Landing Zones</label>
+                  <input {...register('landingOptionsTypical')} className="input" placeholder="Safe fields, accessible zones" />
+                </div>
+                <div>
+                  <label className="label text-danger/80">Areas to Avoid</label>
+                  <input {...register('landingOptionsAvoid')} className="input" placeholder="Protected areas, forest, urban" />
+                </div>
               </div>
             </div>
           </section>
 
           {/* Submit */}
-          <div className="flex gap-4">
-            <button type="submit" disabled={isSubmitting || !loadWeightStatus || !fuelReserveSufficient} className="btn-primary flex-1">
-              {isSubmitting ? 'Generating...' : '📋 Generate Flight Plan'}
+          <div className="sticky bottom-6 flex flex-col gap-4">
+            <button
+              type="submit"
+              disabled={isSubmitting || !loadWeightStatus || !fuelReserveSufficient || !isTOMValid}
+              className={`w-full py-4 rounded-xl text-lg font-bold shadow-2xl transition-all ${(loadWeightStatus && fuelReserveSufficient && isTOMValid)
+                  ? 'bg-primary text-white hover:scale-[1.02] active:scale-95'
+                  : 'bg-foreground/20 text-foreground/40 cursor-not-allowed'
+                }`}
+            >
+              {isSubmitting ? 'Generating...' : '✈️ Generate EASA Operational Flight Plan'}
             </button>
+            <p className="text-center text-[10px] opacity-50 uppercase tracking-widest">
+              Part-BOP COMPLIANT | Voyager Balloons European Region
+            </p>
           </div>
 
           {submitSuccess && (
-            <div className="p-4 bg-success/20 border-2 border-success rounded-lg text-center">
-              ✓ Flight plan copied to clipboard! Paste it wherever you need it.
+            <div className="fixed top-20 left-1/2 -translate-x-1/2 p-6 bg-success/90 backdrop-blur-md border border-white/20 rounded-2xl text-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300 z-50">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">✓</span>
+                <div>
+                  <div className="font-bold">EASA OFP COMPLETED</div>
+                  <div className="text-sm opacity-90">Part-BOP documented & copied to clipboard.</div>
+                </div>
+              </div>
             </div>
           )}
         </form>
